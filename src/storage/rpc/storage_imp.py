@@ -9,7 +9,7 @@ from pymongo.errors import BulkWriteError
 
 from storage.models.InsertTweet import InsertTweetResponse
 
-logger = logging.getLogger('twitter_analyzer.storage.server.impl')
+logger = logging.getLogger(__name__)
 MONGODB_INSERT_THRESHOLD = 256
 
 

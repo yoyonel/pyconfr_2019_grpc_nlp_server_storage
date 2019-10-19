@@ -87,8 +87,7 @@ def mongodb(pytestconfig):
 
     @dataclass
     class MongoWrapper:
-        def get_db(self, fixture_name: str = None,
-                   dbname: str = 'twitter_analyzer'):
+        def get_db(self, fixture_name: str = None, dbname: str = 'pyconfr_2019_grpc_nlp'):
             client = make_mongo_client()
 
             db = client[dbname]

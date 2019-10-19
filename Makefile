@@ -24,7 +24,11 @@ TOX_DIR?=${HOME}/.tox/$(PROJECT_NAME)
 #
 SDIST_PACKAGE=dist/${shell python setup.py --fullname}.tar.gz
 SOURCES=$(shell find src/ -type f -name '*.py') setup.py MANIFEST.in
-PROTOS=$(shell find src/ -type f -name '*.proto')
+
+MONGODB_USER?=user
+MONGODB_PASSWORD?=password
+MONGODB_DBNAME?=pyconfr_2019_grpc_nlp
+MONGODB_ADMIN_PASSWORD?=password
 
 # https://github.com/AnyBlok/anyblok-book-examples/blob/III-06_polymorphism/Makefile
 define PRINT_HELP_PYSCRIPT
@@ -40,11 +44,7 @@ export PRINT_HELP_PYSCRIPT
 help:
 	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-all: build_proto_modules
-
-build_proto_modules: ${PROTOS}
-	@echo "Build proto modules ..."
-	@python setup.py build_proto_modules
+all: docker
 
 sdist: ${SDIST_PACKAGE}
 
@@ -75,10 +75,27 @@ tox:
 	# http://ahmetdal.org/jenkins-tox-shebang-problem/
 	tox --workdir ${TOX_DIR}
 
-clean: clean-proto clean-build clean-pyc ## remove all build, coverage and Python artifacts
+up_mongodb:	## launch MongoDB service from docker-compose project
+	# https://stackoverflow.com/questions/30233105/docker-compose-up-for-only-certain-containers
+	DOCKER_TAG=${DOCKER_TAG} \
+	MONGODB_USER=${MONGODB_USER} \
+	MONGODB_PASSWORD=${MONGODB_PASSWORD} \
+	MONGODB_DBNAME=${MONGODB_DBNAME} \
+	MONGODB_ADMIN_PASSWORD=${MONGODB_ADMIN_PASSWORD} \
+	docker-compose \
+		-f docker/docker-compose.build.yml \
+		up ${DOCKERCOMPOSE_UP_OPTIONS} mongodb
 
-clean-proto: ## remove Proto modules builds
-	find src/pyconfr_2019/grpc_nlp/protos -name '*_pb2*.py*' -exec rm -fr {} +
+up_mongodb_detach:	## launch MongoDB service from docker-compose project (in detach mode)
+	DOCKERCOMPOSE_UP_OPTIONS="-d" make up_mongodb
+
+up_storage_server:
+	@MONGODB_USER=${MONGODB_USER} \
+	MONGODB_PASSWORD=${MONGODB_PASSWORD} \
+	MONGODB_SERVICE_DATABASE=${MONGODB_DBNAME} \
+	pyconfr_2019_grpc_nlp_server_storage
+
+clean: clean-build clean-pyc ## remove all build, coverage and Python artifacts
 
 clean-build: ## remove build artifacts
 	rm -fr build/
