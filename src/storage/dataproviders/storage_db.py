@@ -3,7 +3,7 @@ import os
 
 from pymongo import MongoClient
 
-log = logging.getLogger('twitter_analyzer.storage.db')
+log = logging.getLogger(__name__)
 
 
 class StorageDatabase(object):
@@ -11,8 +11,7 @@ class StorageDatabase(object):
             self,
             mongodb_service_host=os.environ.get("MONGODB_SERVICE_HOST", "localhost"),
             mongodb_service_port=int(os.environ.get("MONGODB_SERVICE_PORT", 27017)),
-            mongodb_service_database=os.environ.get("MONGODB_SERVICE_DATABASE",
-                                                    "twitter_analyzer"),
+            mongodb_service_database=os.environ.get("MONGODB_SERVICE_DATABASE", ""),
             mongodb_user=os.environ.get("MONGODB_USER", None),
             mongodb_password=os.environ.get("MONGODB_PASSWORD", None)
     ):

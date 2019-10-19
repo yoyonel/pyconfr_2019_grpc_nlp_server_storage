@@ -55,6 +55,12 @@ setup(
         "Programming Language :: Python :: 3.7",
     ],
     python_requires=">=3.6",
+    entry_points={
+        "console_scripts": [
+            # RPC Server Storage
+            "pyconfr_2019_grpc_nlp_server_storage = storage.storage_server:main"
+        ]
+    },
     # https://github.com/pypa/sample-namespace-packages/issues/6
     zip_safe=False,
 )
