@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def serve(block=True,
           grpc_host_and_port=os.environ.get(
-              "TWITTER_ANALYZER_STORAGE_GRPC_HOST_AND_PORT", '[::]:50052')):
+              "TWITTER_ANALYZER_STORAGE_GRPC_HOST_AND_PORT", 'localhost:50052')):
     """
     Start a new instance of the storage service.
 
@@ -30,7 +30,7 @@ def serve(block=True,
     :param grpc_host_and_port: Listening address of the server.
                                Defaults to the content of the
                                ``TWITTER_ANALYZER_STORAGE_GRPC_HOST_AND_PORT``
-                               environment variable, or ``[::]:50052`` if not set
+                               environment variable, or ``localhost:50052`` if not set
     :type grpc_host_and_port: str
 
     :return: If ``block`` is True, return nothing.

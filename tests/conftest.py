@@ -165,7 +165,7 @@ def mocked_storage_rpc_server(mocker, free_port_for_grpc_server):
 
             if _server_instance is None:
                 _server_instance = serve(block=False,
-                                         grpc_host_and_port='[::]:{}'.format(free_port_for_grpc_server))
+                                         grpc_host_and_port='localhost:{}'.format(free_port_for_grpc_server))
 
             assert _server_instance is not None
 

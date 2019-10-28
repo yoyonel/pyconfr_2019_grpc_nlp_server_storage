@@ -7,5 +7,5 @@ mypy-protobuf
 pymongo
 
 #
-pyconfr-2019-grpc-nlp-tools==0.1.1
+pyconfr-2019-grpc-nlp-tools>=0.1.5
 pyconfr-2019-grpc-nlp-protos==0.1.2
