@@ -4,12 +4,7 @@ from pyconfr_2019.grpc_nlp.tools.timestamps import parse_to_timestamp
 from storage.rpc.storage_imp import prepare_mongodb_data_from_tweet
 
 
-def test_rpc_store_tweets_stream(
-        mocked_storage_rpc_server,
-        storage_rpc_stub,
-        mongodb,
-        tweets_json
-):
+def test_rpc_store_tweets_stream(mocked_storage_rpc_server, storage_rpc_stub, mongodb, tweets_json):
     # Prepare mongo database
     db = mongodb.get_db()
 
@@ -40,8 +35,7 @@ def test_rpc_store_tweets_stream(
     # assert list(db.tweets.find({}, {'_id': False})) == sent_messages
 
     set_tweet_id_sent_messages = set([msg['tweet_id'] for msg in sent_messages])
-    set_tweet_id_from_db = set(
-        [tweet['tweet_id'] for tweet in list(db.tweets.find({}, {'_id': False}))])
+    set_tweet_id_from_db = set([tweet['tweet_id'] for tweet in list(db.tweets.find({}, {'_id': False}))])
 
     # source JSON tweets not valid in term of key/indexes unicity
     assert set_tweet_id_sent_messages.difference(set_tweet_id_from_db) == set()

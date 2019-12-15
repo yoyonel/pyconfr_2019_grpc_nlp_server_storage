@@ -1,23 +1,21 @@
 import logging
 import os
 import sys
-import time
 
 import pymongo
+import time
 from grpc_reflection.v1alpha import reflection  # for gRPC server reflection
-from pyconfr_2019.grpc_nlp.protos import StorageService_pb2
-from pyconfr_2019.grpc_nlp.protos.StorageService_pb2_grpc import add_StorageServiceServicer_to_server
 from pyconfr_2019.grpc_nlp.tools import rpc_server
 
+from pyconfr_2019.grpc_nlp.protos import StorageService_pb2
+from pyconfr_2019.grpc_nlp.protos.StorageService_pb2_grpc import add_StorageServiceServicer_to_server
 from storage.dataproviders.storage_db import StorageDatabase
 from storage.rpc.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
 
 
-def serve(block=True,
-          grpc_host_and_port=os.environ.get(
-              "TWITTER_ANALYZER_STORAGE_GRPC_HOST_AND_PORT", 'localhost:50052')):
+def serve(block=True, grpc_host_and_port=os.environ.get("TWITTER_ANALYZER_STORAGE_GRPC_HOST_AND_PORT", 'localhost:50052')):
     """
     Start a new instance of the storage service.
 
@@ -41,20 +39,15 @@ def serve(block=True,
     def _add_storage_service_servicer_to_server(server):
         add_StorageServiceServicer_to_server(StorageService(), server)
         # the reflection service will be aware of "StorageService" and "ServerReflection" services.
-        service_names = (
-            StorageService_pb2.DESCRIPTOR.services_by_name['StorageService'].full_name,
-            reflection.SERVICE_NAME,
-        )
+        service_names = (StorageService_pb2.DESCRIPTOR.services_by_name['StorageService'].full_name, reflection.SERVICE_NAME)
         reflection.enable_server_reflection(service_names, server)
         logger.info("Activate reflection on server for services: {}".format(service_names))
 
-    return rpc_server.serve('storage', _add_storage_service_servicer_to_server,
-                            grpc_host_and_port, block=block)
+    return rpc_server.serve('storage', _add_storage_service_servicer_to_server, grpc_host_and_port, block=block)
 
 
 def main():
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                        level=logging.INFO)
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
     # Ensure MongoDB is running and accessible
     max_retries = 5
