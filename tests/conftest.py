@@ -3,38 +3,39 @@ import functools
 import json
 import logging
 import os
-import socket
 import sys
-from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable
+from typing import Dict, Iterable, Optional
 
 import grpc
 import mongomock
 import pytest
 from bson import json_util
 from pyconfr_2019.grpc_nlp.protos import StorageService_pb2_grpc
+from pyconfr_2019.grpc_nlp.tools.find_free_port import find_free_port
 
 from storage.storage_server import serve
-
-# Code highly inspired from pytest-mongodb
-# https://github.com/mdomke/pytest-mongodb/blob/develop/pytest_mongodb/plugin.py
-_cache = {}
-_server_instance = None
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(funcName)s - %(levelname)s - %(message)s')
 
 
+@dataclass
+class MongoDBCache:
+    # Code highly inspired from pytest-mongodb
+    # https://github.com/mdomke/pytest-mongodb/blob/develop/pytest_mongodb/plugin.py
+    cache: Optional[dict] = None
+    server_instance: Optional[grpc.Server] = None
+
+
+@pytest.fixture(autouse=True, scope="session")
+def mongodb_cache() -> MongoDBCache:
+    return MongoDBCache()
+
+
 @pytest.fixture(autouse=True)
 def setup_doctest_logger(log_level: int = logging.DEBUG):
-    """
-
-    :param log_level:
-    :return:
-
-    """
     if is_pycharm_running():
         logger_add_streamhandler_to_sys_stdout()
     logger.setLevel(log_level)
@@ -61,18 +62,7 @@ def data_dir() -> Path:
 
 @pytest.fixture(scope="session")
 def tweets_json(data_dir) -> Iterable[Dict]:
-    return json.load((data_dir / 'tweets.json').open('r'))
-
-
-def find_free_port():
-    # https://stackoverflow.com/questions/1365265/on-localhost-how-do-i-pick-a-free-port-number
-    def _find_free_port():
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-            s.bind(('localhost', 0))
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            return s.getsockname()[1]
-
-    return _find_free_port()
+    return json.load((data_dir / 'tweets.clean.json').open('r'))
 
 
 @pytest.fixture(scope='module')
@@ -81,29 +71,24 @@ def free_port_for_grpc_server():
 
 
 @pytest.fixture(scope='function')
-def mongodb(pytestconfig):
+def mongodb(pytestconfig, mongodb_cache):
     def make_mongo_client():
         return mongomock.MongoClient()
 
     @dataclass
     class MongoWrapper:
-        def get_db(self, fixture_name: str = None, dbname: str = 'pyconfr_2019_grpc_nlp'):
+        def get_db(self, fixture_name: str = None, db_name: str = 'pyconfr_2019_grpc_nlp'):
             client = make_mongo_client()
-
-            db = client[dbname]
-
+            db = client[db_name]
             self.clean_database(db)
-
             if fixture_name is not None:
                 self.load_fixtures(db, fixture_name)
-
             return db
 
         @staticmethod
         def load_fixtures(db: mongomock.Database, fixture_name: str):
-            basedir = pytestconfig.getoption(
-                'mongodb_fixture_dir') or pytestconfig.getini(
-                'mongodb_fixture_dir')
+            basedir = (pytestconfig.getoption('mongodb_fixture_dir')
+                       or pytestconfig.getini('mongodb_fixture_dir'))
             fixture_path = os.path.join(pytestconfig.rootdir, basedir,
                                         '{}.json'.format(fixture_name))
 
@@ -113,10 +98,10 @@ def mongodb(pytestconfig):
             loader = functools.partial(json.load,
                                        object_hook=json_util.object_hook)
             try:
-                collections = _cache[fixture_path]
+                collections = mongodb_cache.cache[fixture_path]
             except KeyError:
                 with codecs.open(fixture_path, encoding='utf-8') as fp:
-                    _cache[fixture_path] = collections = loader(fp)
+                    mongodb_cache.cache[fixture_path] = collections = loader(fp)
 
             for collection, docs in collections.items():
                 mongo_collection = db[collection]  # type: mongomock.Collection
@@ -131,31 +116,32 @@ def mongodb(pytestconfig):
 
 
 @pytest.fixture(scope='session', autouse=True)
-def close_storage_server(request):
+def close_storage_server(request, mongodb_cache):
     def stop_server():
-        global _server_instance
-        if _server_instance:
-            _server_instance.stop(0)
-            _server_instance = None
+        if mongodb_cache.server_instance:
+            mongodb_cache.server_instance.stop(0)
+            mongodb_cache.server_instance = None
 
     request.addfinalizer(stop_server)
 
 
 @pytest.fixture(scope='function')
-def mocked_storage_rpc_server(mocker, free_port_for_grpc_server):
+def mocked_storage_rpc_server(mocker, free_port_for_grpc_server, mongodb_cache):
     """
     Spawn an instance of the storage service, only if one is not already available
 
-    :param mocker:
-    :param free_port_for_grpc_server:
-    :return:
+    Args:
+        mocker:
+        free_port_for_grpc_server:
+        mongodb_cache:
+
+    Returns:
+
     """
 
     class Wrapper(object):
         @staticmethod
         def start(database=None):
-            global _server_instance
-
             # Mock the database first
             mock_storage = mocker.patch('storage.rpc.storage_service.StorageDatabase')
 
@@ -163,11 +149,11 @@ def mocked_storage_rpc_server(mocker, free_port_for_grpc_server):
                 # Mock methods
                 mock_storage.return_value.__enter__.return_value = database
 
-            if _server_instance is None:
-                _server_instance = serve(block=False,
-                                         grpc_host_and_port='localhost:{}'.format(free_port_for_grpc_server))
+            if mongodb_cache.server_instance is None:
+                mongodb_cache.server_instance = serve(block=False,
+                                                      grpc_host_and_port='localhost:{}'.format(free_port_for_grpc_server))
 
-            assert _server_instance is not None
+            assert mongodb_cache.server_instance is not None
 
     return Wrapper()
 
@@ -177,11 +163,12 @@ def storage_rpc_stub(free_port_for_grpc_server):
     """
     Create a new storage rpc stub and connect to the server
 
-    :param free_port_for_grpc_server:
-    :return:
-    :rtype:
+    Args:
+        free_port_for_grpc_server:
+
+    Returns:
+
     """
     channel = grpc.insecure_channel('localhost:{}'.format(free_port_for_grpc_server))
     stub = StorageService_pb2_grpc.StorageServiceStub(channel)
-
     return stub

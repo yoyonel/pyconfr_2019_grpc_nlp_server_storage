@@ -16,19 +16,19 @@ def test_rpc_store_tweets_stream(mocked_storage_rpc_server, storage_rpc_stub, mo
     def _stream_fake_tweets():
         for tweet_json in tweets_json:
             msg = StorageService_pb2.StoreTweetsRequest(
-                tweet=Tweet_pb2.Tweet(**{
-                    'created_at': parse_to_timestamp(tweet_json['created_at']),
-                    'text': tweet_json['text'],
-                    'user_id': tweet_json['user']['id'],
-                    'lang': tweet_json['lang'],
-                    'tweet_id': tweet_json['id'],
-                })
+                tweet=Tweet_pb2.Tweet(
+                    created_at=parse_to_timestamp(tweet_json['created_at']),
+                    text=tweet_json['text'],
+                    user_id=tweet_json['user']['id'],
+                    lang=tweet_json['lang'],
+                    tweet_id=tweet_json['id'],
+                )
             )
             data = prepare_mongodb_data_from_tweet(msg.tweet)
             sent_messages.append(data)
-
             yield msg
 
+    # using gRPC service for storing tweets
     storage_rpc_stub.StoreTweetsStream(_stream_fake_tweets())
 
     # TODO: use `clean_json_tweets` utility
